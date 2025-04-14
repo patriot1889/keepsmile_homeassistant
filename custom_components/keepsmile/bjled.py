@@ -267,13 +267,49 @@ class BJLEDInstance:
     @retry_bluetooth_connection_error
     async def set_rgb_color(self, rgb: Tuple[int, int, int], brightness: int | None = None):
         self._rgb_color = rgb
+        r, g, b = rgb
+        
+        g_low = 70
+        b_low = 70
+
+        r_min = 20
+        r_max = 150
+        gain_min = 1
+        gain_max = 0.35
+
+        # If r is less than r_min, return gain_min
+        if r < r_min:
+            gain = gain_min
+        # If r is greater than r_max, return gain_max
+        elif r >= r_max:
+            gain = gain_max
+        else:
+        # Linear interpolation between gain_min and gain_max
+            gain = gain_min + ((r - r_min) / (r_max - r_min)) * (gain_max - gain_min)
+        
+        # Adjust green
+        if r == 255 and g < g_low:
+            g_new = 0
+        else:
+            g_new = int((g - g_low) / (255 - g_low) * 255)
+        
+        g_adj = int(max((g_new * gain), 0))
+
+        # Adjust blue
+        if r == 255 and b < b_low:
+            b_new = 0
+        else:
+            b_new = int((b - b_low) / (255 - b_low) * 255)
+        
+        b_adj = int(max((b_new * gain), 0))
+
         if brightness is None:
             if self._brightness is None:
                 self._brightness = 254
             else:
                 brightness = self._brightness
         # RGB packet
-        self._state.update(RGBCommand(*rgb))
+        self._state.update(RGBCommand(r, g_adj, b_adj))
         self._state.update(BrightnessCommand(brightness))
         await self._write_state()
 
